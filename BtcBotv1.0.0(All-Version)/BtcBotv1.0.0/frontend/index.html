@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Simple Crypto AI</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      background-color: #f2f2f2;
+      padding: 20px;
+      border-radius: 12px;
+    }
+    input, button {
+      width: 100%;
+      margin: 10px 0;
+      padding: 10px;
+      font-size: 1em;
+    }
+    #response {
+      background-color: #fff;
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 10px;
+      white-space: pre-line;
+    }
+  </style>
+</head>
+<body>
+  <h2>🔍 Simple Crypto AI</h2>
+  <label for="message">Tanya Analisa Crypto (Contoh: BTC/IDR):</label>
+  <input type="text" id="message" placeholder="Misal: BTC/IDR" />
+  <button id="sendBtn">Kirim</button>
+
+  <div id="response"></div>
+
+  <script>
+    document.getElementById("sendBtn").addEventListener("click", async () => {
+      const message = document.getElementById("message").value.trim();
+      if (!message) {
+        alert("Isi simbol koin dulu!");
+        return;
+      }
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: message, timeframe: "1h" })
+      });
+      const data = await res.json();
+      document.getElementById("response").innerText = data.response;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simple Crypto AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 min-h-screen flex items-center justify-center px-4">
+    <div class="bg-white shadow-lg rounded-2xl p-6 w-full max-w-xl">
+      <h2 class="text-2xl font-semibold text-blue-700 mb-4">🔍 Simple Crypto AI</h2>
+
+      <label for="message" class="block text-gray-700 mb-1">Simbol Crypto (Contoh: BTC)</label>
+      <input
+        type="text"
+        id="message"
+        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+        placeholder="Masukkan simbol crypto"
+      />
+      <button
+        onclick="sendChat()"
+        class="w-full mt-3 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+      >
+        Kirim Analisa
+      </button>
+
+      <div id="response" class="mt-5 bg-gray-50 p-4 rounded-md text-gray-800 whitespace-pre-line"></div>
+
+      <div id="details" class="mt-4"></div>
+    </div>
+
+    <script>
+      async function sendChat() {
+        const msgInput = document.getElementById("message");
+        const responseDiv = document.getElementById("response");
+        const detailsDiv = document.getElementById("details");
+        const message = msgInput.value.trim();
+
+        if (!message) {
+          alert("Masukkan simbol seperti BTC atau ETH");
+          return;
+        }
+
+        responseDiv.innerText = "⏳ Memproses permintaan...";
+        detailsDiv.innerHTML = "";
+
+        try {
+          const res = await fetch("http://localhost:8000/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message, timeframe: "1h" }),
+          });
+
+          const data = await res.json();
+          responseDiv.innerText = data.response || "Tidak ada respons.";
+
+          if (data.details && !data.details.error) {
+            const d = data.details;
+            detailsDiv.innerHTML = `
+              <h3 class="text-lg font-semibold mt-4 mb-2 text-blue-600">📊 Detail Prediksi</h3>
+              <div class="overflow-x-auto">
+                <table class="min-w-full bg-white border border-gray-200 text-sm">
+                  <thead class="bg-blue-600 text-white">
+                    <tr>
+                      <th class="text-left px-4 py-2">Parameter</th>
+                      <th class="text-left px-4 py-2">Nilai</th>
+                    </tr>
+                  </thead>
+                  <tbody class="text-gray-700">
+                    <tr><td class="px-4 py-2">Sinyal Prediksi</td><td class="px-4 py-2">${d.prediction_signal}</td></tr>
+                    <tr><td class="px-4 py-2">Deskripsi</td><td class="px-4 py-2">${d.prediction_desc}</td></tr>
+                    <tr><td class="px-4 py-2">Raw Prediksi</td><td class="px-4 py-2">${d.raw_prediction}</td></tr>
+                    <tr><td class="px-4 py-2">EMA50</td><td class="px-4 py-2">${d.ema50.toFixed(4)}</td></tr>
+                    <tr><td class="px-4 py-2">EMA200</td><td class="px-4 py-2">${d.ema200.toFixed(4)}</td></tr>
+                    <tr><td class="px-4 py-2">MACD</td><td class="px-4 py-2">${d.macd.toFixed(4)}</td></tr>
+                    <tr><td class="px-4 py-2">MACD Signal</td><td class="px-4 py-2">${d.macd_signal.toFixed(4)}</td></tr>
+                    <tr><td class="px-4 py-2">Probabilitas</td><td class="px-4 py-2">${d.probability ? d.probability.map(p => p.toFixed(3)).join(", ") : "N/A"}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            `;
+          } else if (data.details?.error) {
+            detailsDiv.innerHTML = `<p class="text-red-500 mt-2">${data.details.error}</p>`;
+          }
+        } catch (error) {
+          responseDiv.innerText = "❌ Terjadi kesalahan: " + error.message;
+        }
+      }
+    </script>
+  </body>
+</html>
