@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simple Crypto AI</title>
+  <link rel="icon" href="favicon.png" type="image/png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Tambahkan ini di <head> atau sebelum </body> -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center px-4">
+<style>
+#sltp-response table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+#sltp-response th,
+#sltp-response td {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+
+#sltp-response th {
+  background-color: #f2f2f2;
+}
+</style>
+
+  <div class="bg-white shadow-lg rounded-2xl p-6 w-full max-w-xl">
+    <h2 class="text-2xl font-semibold text-blue-700 mb-4">🔍 Simple Crypto AI</h2>
+
+    <label for="symbol" class="block text-gray-700 mb-1">Simbol Crypto (Contoh: BTC)</label>
+    <input type="text" id="symbol" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="Masukkan simbol crypto" />
+
+    <label for="timeframe" class="block text-gray-700 mt-4 mb-1">Pilih Timeframe</label>
+    <select id="timeframe" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400">
+      <option value="15m">15 Menit</option>
+      <option value="30m">30 Menit</option>
+      <option value="1h" selected>1 Jam</option>
+      <option value="4h">4 Jam</option>
+      <option value="1d">1 Hari</option>
+    </select>
+
+    <button onclick="sendChat()" class="w-full mt-4 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">Kirim Analisa</button>
+
+    <div id="response" class="mt-5 bg-gray-50 p-4 rounded-md text-gray-800 whitespace-pre-line"></div>
+    <div id="details" class="mt-4"></div>
+
+    <!-- Tombol & output SLTP -->
+    <button id="btn-sltp" onclick="sendSltp()" class="w-full mt-4 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition hidden">
+      🔐 Lihat Stop Loss & Take Profit
+    </button>
+    <div id="sltp-response" class="mt-4 bg-gray-100 p-4 rounded text-sm whitespace-pre-wrap text-gray-800"></div>
+
+    <div id="admin-panel" class="hidden mt-2">
+      <h3 class="text-xl font-semibold mt-10 text-red-600">🔐 Admin: Latih Ulang Model</h3>
+      <label class="block text-gray-700 mb-1">Simbol</label>
+      <input id="train-symbol" type="text" placeholder="BTC" class="w-full px-3 py-2 border rounded" />
+
+      <label class="block text-gray-700 mt-3 mb-1">Timeframe</label>
+      <select id="train-timeframe" class="w-full px-3 py-2 border rounded">
+        <option value="15m">15 Menit</option>
+        <option value="30m">30 Menit</option>
+        <option value="1h" selected>1 Jam</option>
+        <option value="4h">4 Jam</option>
+        <option value="1d">1 Hari</option>
+      </select>
+
+      <label class="block text-gray-700 mt-3 mb-1">Password Admin</label>
+      <input id="admin-password" type="password" placeholder="Password" class="w-full px-3 py-2 border rounded" />
+      <button onclick="sendTrain()" class="w-full mt-4 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition">🔄 Latih Model</button>
+      <button onclick="sendTrainAll()" class="w-full mt-4 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition">🔄 Train semua Koin-Koin Meme</button>
+      <div id="train-response" class="mt-4 bg-gray-100 p-3 text-gray-800 rounded"></div>
+    </div>
+  </div>
+
+  <script>
+    let latestDetail = null;
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "space" || event.key === "Escape") {
+        const panel = document.getElementById("admin-panel");
+        panel.classList.toggle("hidden");
+      }
+    });
+
+    async function sendChat() {
+      const symbol = document.getElementById("symbol").value.trim().toUpperCase();
+      const timeframe = document.getElementById("timeframe").value;
+      const responseDiv = document.getElementById("response");
+      const detailsDiv = document.getElementById("details");
+
+      if (!symbol) {
+        alert("Masukkan simbol seperti BTC atau ETH");
+        return;
+      }
+
+      responseDiv.innerText = "⏳ Memproses permintaan...";
+      detailsDiv.innerHTML = "";
+
+      try {
+        const res = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: symbol, timeframe }),
+        });
+
+        const data = await res.json();
+        responseDiv.innerText = data.response || "Tidak ada respons.";
+
+        if (data.details && !data.details.error) {
+          const d = data.details;
+          latestDetail = d;
+          document.getElementById("btn-sltp").classList.remove("hidden");
+
+          detailsDiv.innerHTML = `
+            <h3 class="text-lg font-semibold mt-4 mb-2 text-blue-600">📊 Detail Prediksi</h3>
+            <table class="min-w-full bg-white border border-gray-200 text-sm">
+              <thead class="bg-blue-600 text-white">
+                <tr><th class="text-left px-4 py-2">Parameter</th><th class="text-left px-4 py-2">Nilai</th></tr>
+              </thead>
+              <tbody class="text-gray-700">
+                <tr><td class="px-4 py-2">Sinyal Prediksi</td><td class="px-4 py-2">${d.prediction_signal}</td></tr>
+                <tr><td class="px-4 py-2">Deskripsi</td><td class="px-4 py-2">${d.prediction_desc}</td></tr>
+                <tr><td class="px-4 py-2">Raw Prediksi</td><td class="px-4 py-2">${d.raw_prediction}</td></tr>
+                <tr><td class="px-4 py-2">Pola</td><td class="px-4 py-2">${d.pattern_detected}</td></tr>
+                <tr><td class="px-4 py-2">Harga Saat Ini</td><td class="px-4 py-2">💸 ${d.formatted_price}</td></tr>
+                <tr><td class="px-4 py-2">EMA50</td><td class="px-4 py-2">📈 ${d.formatted_ema50}</td></tr>
+                <tr><td class="px-4 py-2">EMA200</td><td class="px-4 py-2">📉 ${d.formatted_ema200}</td></tr>
+                <tr><td class="px-4 py-2">EMA Cross</td><td class="px-4 py-2"> ${d.ema_cross_desc}</td></tr>
+                <tr><td class="px-4 py-2">EMA Trend</td><td class="px-4 py-2"> ${d.ema_trend}</td></tr>
+                <tr><td class="px-4 py-2">MACD</td><td class="px-4 py-2">📊 ${d.macd.toFixed(4)}</td></tr>
+                <tr><td class="px-4 py-2">MACD Signal</td><td class="px-4 py-2">📊 ${d.macd_signal.toFixed(4)}</td></tr>
+                <tr><td class="px-4 py-2">RSI</td><td class="px-4 py-2">🧭 ${d.rsi.toFixed(2)}% (${d.rsi_desc})</td></tr>
+                <tr><td class="px-4 py-2">Stochastic</td><td class="px-4 py-2">📌 ${d.stoch.toFixed(2)}% (${d.stoch_desc})</td></tr>
+                <tr>
+                  <td class="px-4 py-2 align-top">Probabilitas</td>
+                  <td class="px-4 py-2">
+                    <div class="space-y-1">
+                      <div>🔻 SELL: ${(d.probability[0] * 100).toFixed(1)}%</div>
+                      <div>⚖️ HOLD: ${(d.probability[1] * 100).toFixed(1)}%</div>
+                      <div>🚀 BUY: ${(d.probability[2] * 100).toFixed(1)}%</div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            ${d.last_updated ? `<p class="text-sm text-gray-500 mt-2">⏱️ Data terakhir: ${new Date(d.last_updated * 1000).toLocaleString("id-ID")}</p>` : ""}
+          `;
+        } else {
+          detailsDiv.innerHTML = `<p class="text-red-500 mt-2">${data.details?.error || "Terjadi kesalahan"}</p>`;
+        }
+      } catch (error) {
+        responseDiv.innerText = "❌ Error: " + error.message;
+      }
+    }
+
+    async function sendSltp() {
+      const sltpDiv = document.getElementById("sltp-response");
+      sltpDiv.innerText = "⏳ Meminta saran SL/TP dari Gemini AI...";
+
+      if (!latestDetail) {
+        sltpDiv.innerText = "❌ Data analisis belum tersedia.";
+        return;
+      }
+
+      try {
+        const res = await fetch("/gemini-sltp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: latestDetail }),
+        });
+
+        const data = await res.json();
+        if (res.status !== 200) {
+          sltpDiv.innerText = "❌ " + (data.detail || "Gagal meminta SL/TP.");
+        } else {
+          const markdown = "📌 Rekomendasi SL/TP:\n\n" + data.response;
+          const html = marked.parse(markdown);
+          sltpDiv.innerHTML = html;
+        }
+      } catch (error) {
+        sltpDiv.innerText = "❌ Error: " + error.message;
+      }
+    }
+
+    async function sendTrain() {
+      const symbol = document.getElementById("train-symbol").value.trim().toUpperCase();
+      const timeframe = document.getElementById("train-timeframe").value;
+      const password = document.getElementById("admin-password").value;
+      const trainResponseDiv = document.getElementById("train-response");
+
+      if (!symbol || !password) {
+        alert("Mohon isi simbol dan password admin.");
+        return;
+      }
+
+      trainResponseDiv.innerText = "⏳ Melatih model...";
+
+      try {
+        const res = await fetch("/train", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ symbol, timeframe, password }),
+        });
+
+        const data = await res.json();
+        if (res.status !== 200) {
+          trainResponseDiv.innerText = "❌ " + (data.detail || "Gagal melatih model.");
+        } else {
+          trainResponseDiv.innerText = "✅ " + (data.response || "Model berhasil dilatih.");
+        }
+      } catch (error) {
+        trainResponseDiv.innerText = "❌ Error: " + error.message;
+      }
+    }
+
+    async function sendTrainAll() {
+      const password = document.getElementById("admin-password").value;
+      const trainResponseDiv = document.getElementById("train-response");
+
+      if (!password) {
+        alert("Masukkan password admin terlebih dahulu.");
+        return;
+      }
+
+      const coins = ["PEPE","ZEREBRO","FARTCOIN","DOGE","MOODENG","SPX","SHIB","DEGEN","WIF","ACTSOL","BOME","POPCAT","MOG","CHILLGUY","GOAT","GIGA","DOGS","ANIME","CAT","NPC","MYRO"];
+      const timeframe = "15m";
+
+      trainResponseDiv.innerText = `⏳ Melatih semua model (${coins.join(", ")})...`;
+
+      for (let i = 0; i < coins.length; i++) {
+        const symbol = coins[i];
+        try {
+          const res = await fetch("/train", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ symbol, timeframe, password }),
+          });
+
+          const data = await res.json();
+          if (res.status === 200) {
+            trainResponseDiv.innerText += `\n✅ ${symbol} berhasil dilatih`;
+          } else {
+            trainResponseDiv.innerText += `\n❌ ${symbol} gagal (${data.detail || "Gagal"})`;
+          }
+        } catch (err) {
+          trainResponseDiv.innerText += `\n❌ ${symbol} error: ${err.message}`;
+        }
+      }
+
+      trainResponseDiv.innerText += `\n✅ Selesai latih semua.`;
+    }
+    
+  </script>
+</body>
+</html>
