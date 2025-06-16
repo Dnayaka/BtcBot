@@ -10,6 +10,22 @@ from sklearn.preprocessing import StandardScaler
 import ta
 from ta.momentum import RSIIndicator, StochasticOscillator
 import time
+from pola import (
+    detect_double_top_bottom,
+    detect_bullish_engulfing,
+    detect_bearish_engulfing,
+    detect_head_and_shoulders,
+    detect_rising_wedge,
+    detect_falling_wedge,
+    detect_symmetrical_triangle,
+    detect_ascending_triangle,
+    detect_descending_triangle,
+    detect_triple_top,
+    detect_triple_bottom,
+    detect_hammer,
+    detect_shooting_star
+)
+
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -166,6 +182,45 @@ def analyze_only(symbol, timeframe):
         pred
     )
 
+    if last["ema_trend"] == 0:
+        filtered = 0  # Hindari entry saat tren turun
+    elif max(probs) < 0.7:
+        filtered = 0  # Probabilitas lemah
+    elif last["rsi"] > 70 and pred == 1:
+        filtered = 0  # RSI overbought tapi sinyal BUY? Batalkan
+    else:
+        filtered = pred
+
+
+    patterns = []
+    
+    # Function Of Patterns
+    for detect_fn in [
+        detect_double_top_bottom,
+        detect_bullish_engulfing,
+        detect_bearish_engulfing,
+        detect_head_and_shoulders,
+        detect_rising_wedge,
+        detect_falling_wedge,
+        detect_symmetrical_triangle,
+        detect_ascending_triangle,
+        detect_descending_triangle,
+        detect_triple_top,
+        detect_triple_bottom,
+        detect_hammer,
+        detect_shooting_star
+    ]:
+        result = detect_fn(df)
+        if result:
+            # Ubah underscore ke format PascalCase (contoh: double_top -> DoubleTop)
+            formatted_result = ' '.join(word.capitalize() for word in result.split('_'))
+            patterns.append(formatted_result)
+
+    # Format hasil pola
+    pattern_desc = ", ".join(patterns) if patterns else "tidak terdeteksi"
+
+
+
     # Logika filter sinyal
     if last["ema50"] < last["ema200"]:
         filtered = 0
@@ -176,16 +231,18 @@ def analyze_only(symbol, timeframe):
 
     mapping = {
         1: ("BUY", "potensi naik > 1.5%"),
-        0: ("HOLD", "tidak ada sinyal kuat"),
+        0: ("WAIT", "tidak ada sinyal kuat"),
         -1: ("SELL", "potensi turun > 1.5%"),
     }
     signal, desc = mapping.get(filtered, ("HOLD", "tidak dikenali"))
 
     return {
+        "Symbol Coin": symbol,
         "prediction_signal": signal,
         "prediction_desc": desc,
         "raw_prediction": int(filtered),
         "probability": probs.tolist() if probs is not None else None,
+        "pattern_detected": pattern_desc,
         "ema50": float(last["ema50"]),
         "ema200": float(last["ema200"]),
         "macd": float(last["macd"]),

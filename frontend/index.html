@@ -6,12 +6,29 @@
   <title>Simple Crypto AI</title>
   <link rel="icon" href="favicon.png" type="image/png" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Tambahkan ini di <head> atau sebelum </body> -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center px-4">
+<style>
+#sltp-response table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
 
-  <style>
-    
-  </style>
+#sltp-response th,
+#sltp-response td {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+
+#sltp-response th {
+  background-color: #f2f2f2;
+}
+</style>
+
   <div class="bg-white shadow-lg rounded-2xl p-6 w-full max-w-xl">
     <h2 class="text-2xl font-semibold text-blue-700 mb-4">🔍 Simple Crypto AI</h2>
 
@@ -32,7 +49,12 @@
     <div id="response" class="mt-5 bg-gray-50 p-4 rounded-md text-gray-800 whitespace-pre-line"></div>
     <div id="details" class="mt-4"></div>
 
-    
+    <!-- Tombol & output SLTP -->
+    <button id="btn-sltp" onclick="sendSltp()" class="w-full mt-4 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition hidden">
+      🔐 Lihat Stop Loss & Take Profit
+    </button>
+    <div id="sltp-response" class="mt-4 bg-gray-100 p-4 rounded text-sm whitespace-pre-wrap text-gray-800"></div>
+
     <div id="admin-panel" class="hidden mt-2">
       <h3 class="text-xl font-semibold mt-10 text-red-600">🔐 Admin: Latih Ulang Model</h3>
       <label class="block text-gray-700 mb-1">Simbol</label>
@@ -48,21 +70,22 @@
       </select>
 
       <label class="block text-gray-700 mt-3 mb-1">Password Admin</label>
-      <input id="admin-password" type="password" placeholder="Password" class="w-full px-3 py-2 border rounded" /><button onclick="sendTrain()" class="w-full mt-4 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition">🔄 Latih Model</button>
-      <button onclick="sendTrainAll()" class="w-full mt-4 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition">🔄 Train semua Koin-Koin besar</button>
+      <input id="admin-password" type="password" placeholder="Password" class="w-full px-3 py-2 border rounded" />
+      <button onclick="sendTrain()" class="w-full mt-4 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition">🔄 Latih Model</button>
+      <button onclick="sendTrainAll()" class="w-full mt-4 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition">🔄 Train semua Koin-Koin Meme</button>
       <div id="train-response" class="mt-4 bg-gray-100 p-3 text-gray-800 rounded"></div>
     </div>
-
   </div>
 
   <script>
+    let latestDetail = null;
+
     document.addEventListener("keydown", function (event) {
-      if (event.key === "d" || event.key === "Escape") {
+      if (event.key === "space" || event.key === "Escape") {
         const panel = document.getElementById("admin-panel");
         panel.classList.toggle("hidden");
       }
     });
-
 
     async function sendChat() {
       const symbol = document.getElementById("symbol").value.trim().toUpperCase();
@@ -90,6 +113,9 @@
 
         if (data.details && !data.details.error) {
           const d = data.details;
+          latestDetail = d;
+          document.getElementById("btn-sltp").classList.remove("hidden");
+
           detailsDiv.innerHTML = `
             <h3 class="text-lg font-semibold mt-4 mb-2 text-blue-600">📊 Detail Prediksi</h3>
             <table class="min-w-full bg-white border border-gray-200 text-sm">
@@ -100,6 +126,7 @@
                 <tr><td class="px-4 py-2">Sinyal Prediksi</td><td class="px-4 py-2">${d.prediction_signal}</td></tr>
                 <tr><td class="px-4 py-2">Deskripsi</td><td class="px-4 py-2">${d.prediction_desc}</td></tr>
                 <tr><td class="px-4 py-2">Raw Prediksi</td><td class="px-4 py-2">${d.raw_prediction}</td></tr>
+                <tr><td class="px-4 py-2">Pola</td><td class="px-4 py-2">${d.pattern_detected}</td></tr>
                 <tr><td class="px-4 py-2">Harga Saat Ini</td><td class="px-4 py-2">💸 ${d.formatted_price}</td></tr>
                 <tr><td class="px-4 py-2">EMA50</td><td class="px-4 py-2">📈 ${d.formatted_ema50}</td></tr>
                 <tr><td class="px-4 py-2">EMA200</td><td class="px-4 py-2">📉 ${d.formatted_ema200}</td></tr>
@@ -131,6 +158,35 @@
       }
     }
 
+    async function sendSltp() {
+      const sltpDiv = document.getElementById("sltp-response");
+      sltpDiv.innerText = "⏳ Meminta saran SL/TP dari Gemini AI...";
+
+      if (!latestDetail) {
+        sltpDiv.innerText = "❌ Data analisis belum tersedia.";
+        return;
+      }
+
+      try {
+        const res = await fetch("/gemini-sltp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: latestDetail }),
+        });
+
+        const data = await res.json();
+        if (res.status !== 200) {
+          sltpDiv.innerText = "❌ " + (data.detail || "Gagal meminta SL/TP.");
+        } else {
+          const markdown = "📌 Rekomendasi SL/TP:\n\n" + data.response;
+          const html = marked.parse(markdown);
+          sltpDiv.innerHTML = html;
+        }
+      } catch (error) {
+        sltpDiv.innerText = "❌ Error: " + error.message;
+      }
+    }
+
     async function sendTrain() {
       const symbol = document.getElementById("train-symbol").value.trim().toUpperCase();
       const timeframe = document.getElementById("train-timeframe").value;
@@ -145,14 +201,13 @@
       trainResponseDiv.innerText = "⏳ Melatih model...";
 
       try {
-        const res = await fetch("http://localhost:8000/train", {
+        const res = await fetch("/train", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ symbol, timeframe, password }),
         });
 
         const data = await res.json();
-
         if (res.status !== 200) {
           trainResponseDiv.innerText = "❌ " + (data.detail || "Gagal melatih model.");
         } else {
@@ -161,8 +216,6 @@
       } catch (error) {
         trainResponseDiv.innerText = "❌ Error: " + error.message;
       }
-
-
     }
 
     async function sendTrainAll() {
@@ -174,15 +227,15 @@
         return;
       }
 
-      const coins = ["BTC", "ETH", "BNB", "SOL", "ADA"];
-      const timeframe = "4h";
+      const coins = ["PEPE","ZEREBRO","FARTCOIN","DOGE","MOODENG","SPX","SHIB","DEGEN","WIF","ACTSOL","BOME","POPCAT","MOG","CHILLGUY","GOAT","GIGA","DOGS","ANIME","CAT","NPC","MYRO"];
+      const timeframe = "15m";
 
       trainResponseDiv.innerText = `⏳ Melatih semua model (${coins.join(", ")})...`;
 
       for (let i = 0; i < coins.length; i++) {
         const symbol = coins[i];
         try {
-          const res = await fetch("http://localhost:8000/train", {
+          const res = await fetch("/train", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ symbol, timeframe, password }),
@@ -201,6 +254,7 @@
 
       trainResponseDiv.innerText += `\n✅ Selesai latih semua.`;
     }
+    
   </script>
 </body>
 </html>
